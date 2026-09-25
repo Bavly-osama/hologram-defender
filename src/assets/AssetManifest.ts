@@ -1,0 +1,27 @@
+export const assetManifest = {
+  SCOUT_DRONE: { kind: "scout", atlas: "" },
+  KAMIKAZE_ORB: { kind: "orb", atlas: "" },
+  HEAVY_DRONE: { kind: "heavy", atlas: "" },
+  PHASE_STRIKER: { kind: "phase_striker", atlas: "" },
+  MARS_ROVER: { kind: "mars_rover", atlas: "" },
+  MAGMA_WALKER: { kind: "magma_walker", atlas: "" },
+  STORM_DRONE: { kind: "storm_drone", atlas: "" },
+  SPLITTER: { kind: "splitter", atlas: "" },
+  SPLITTER_MINI: { kind: "splitter_mini", atlas: "" },
+  ABYSS_RAY: { kind: "abyss_ray", atlas: "" },
+  MIMIC_DRONE: { kind: "mimic_drone", atlas: "" },
+  NULL_HUNTER: { kind: "null_hunter", atlas: "" },
+  ENTROPY_CORE: { kind: "entropy_core", atlas: "" },
+  SENTINEL: { kind: "boss", atlas: "" },
+  MARS_WAR_MACHINE: { kind: "mars_war_machine", atlas: "" },
+  VOID_LEVIATHAN: { kind: "void_leviathan", atlas: "" },
+  FRACTURE_ARCHITECT: { kind: "fracture_architect", atlas: "" },
+  EXPLOSION_SMALL: { kind: "explosion", atlas: "" },
+  EXPLOSION_LARGE: { kind: "explosion", atlas: "" },
+  SHIELD_IMPACT: { kind: "impact", atlas: "" },
+  PORTAL: { kind: "portal", atlas: "" },
+  PLAYER_SHOT: { kind: "shot", atlas: "" },
+  CORE: { kind: "core", atlas: "" },
+} as const;
+export type AssetId = keyof typeof assetManifest;
+export type AnimationState = "SPAWN" | "MOVE" | "ATTACK" | "HIT" | "DEATH";

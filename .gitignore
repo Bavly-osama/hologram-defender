@@ -1,0 +1,12 @@
+node_modules/
+dist/
+data/
+test-results/
+playwright-report/
+.env
+*.log
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+.DS_Store
+Thumbs.db
