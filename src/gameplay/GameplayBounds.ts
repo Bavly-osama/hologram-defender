@@ -1,14 +1,14 @@
 /**
- * GameplayBounds — defines the playable rectangle inside the canvas.
+ * GameplayBounds — defines the playable rectangle inside the canvas
+ * and its mapping to world coordinates.
  *
- * The playable area excludes:
- *  - HUD header at top (masthead height)
- *  - Status-bar footer at bottom
- *  - Safe-area insets on sides
- *
- * Updated by PixiApp.resize() after every viewport change.
+ * Excludes:
+ *  - HUD header at top (masthead)
+ *  - Status-bar footer / camera preview at bottom
+ *  - Safe-area insets on left/right/top/bottom
  */
 
+import { WORLD, type Point } from "../core/Config";
 import type { SafeArea } from "../rendering/ViewportManager";
 
 export interface PlayableBounds {
@@ -20,9 +20,18 @@ export interface PlayableBounds {
   right: number;
   /** Bottom edge in canvas CSS pixels */
   bottom: number;
-  /** Derived width */
+  /** Derived width in CSS pixels */
   width: number;
-  /** Derived height */
+  /** Derived height in CSS pixels */
+  height: number;
+}
+
+export interface WorldPlayableBounds {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+  width: number;
   height: number;
 }
 
@@ -42,26 +51,41 @@ export class GameplayBounds {
     height: 1,
   };
 
+  private _worldBounds: WorldPlayableBounds = {
+    left: 0,
+    top: 0,
+    right: WORLD.width,
+    bottom: WORLD.height,
+    width: WORLD.width,
+    height: WORLD.height,
+  };
+
+  isPortrait = false;
+
   get bounds(): PlayableBounds {
     return this._bounds;
   }
 
+  get worldBounds(): WorldPlayableBounds {
+    return this._worldBounds;
+  }
+
   /**
-   * Call from PixiApp.resize() passing current canvas dimensions and insets.
+   * Called from PixiApp.resize() with current canvas dimensions, safe-area, and transforms.
    */
   update(
     canvasW: number,
     canvasH: number,
     safe: SafeArea,
+    transform: { scaleX: number; scaleY: number; offsetX: number; offsetY: number; isPortrait: boolean },
     options: {
-      /** Height of the HUD masthead in CSS pixels */
       hudTopPx?: number;
-      /** Height of the footer statusbar in CSS pixels */
       footerPx?: number;
     } = {},
   ) {
-    const hudTop = options.hudTopPx ?? 48;
-    const footer = options.footerPx ?? 32;
+    this.isPortrait = transform.isPortrait;
+    const hudTop = options.hudTopPx ?? (this.isPortrait ? 44 : 48);
+    const footer = options.footerPx ?? (this.isPortrait ? 40 : 36);
 
     const left = safe.left;
     const right = canvasW - safe.right;
@@ -76,6 +100,23 @@ export class GameplayBounds {
       width: Math.max(1, right - left),
       height: Math.max(1, bottom - top),
     };
+
+    // Derive world-coordinate playable rect
+    const sx = Math.max(0.001, transform.scaleX);
+    const sy = Math.max(0.001, transform.scaleY);
+    const wLeft = (left - transform.offsetX) / sx;
+    const wRight = (right - transform.offsetX) / sx;
+    const wTop = (top - transform.offsetY) / sy;
+    const wBottom = (bottom - transform.offsetY) / sy;
+
+    this._worldBounds = {
+      left: wLeft,
+      top: wTop,
+      right: wRight,
+      bottom: wBottom,
+      width: Math.max(1, wRight - wLeft),
+      height: Math.max(1, wBottom - wTop),
+    };
   }
 
   /**
@@ -86,6 +127,23 @@ export class GameplayBounds {
     return {
       nx: Math.max(0, Math.min(1, (canvasX - b.left) / b.width)),
       ny: Math.max(0, Math.min(1, (canvasY - b.top) / b.height)),
+    };
+  }
+
+  /**
+   * Map normalized (0..1, 0..1) coordinates to world coordinates within the visible bounds.
+   * On mobile portrait, clamps strictly inside visible screen bounds with margin.
+   */
+  toWorld(nx: number, ny: number, marginX = 35, marginY = 15): Point {
+    const wb = this._worldBounds;
+    const minX = wb.left + marginX;
+    const maxX = wb.right - marginX;
+    const minY = wb.top + marginY;
+    const maxY = wb.bottom - marginY;
+
+    return {
+      x: minX + Math.max(0, Math.min(1, nx)) * Math.max(1, maxX - minX),
+      y: minY + Math.max(0, Math.min(1, ny)) * Math.max(1, maxY - minY),
     };
   }
 }

@@ -114,6 +114,13 @@ export class PixiApp {
     isPortrait: false,
   };
 
+  /**
+   * Extra sprite scale multiplier applied in update() to compensate for
+   * the portrait world shrink (e.g. 390px / 1200 = 0.325 → enemies tiny).
+   * 1.0 on desktop/landscape. Boosted on portrait mobile.
+   */
+  mobileScaleBoost = 1.0;
+
   private resize() {
     const { width, height } = this.app.screen;
     const snap = ViewportManager.get().snap;
@@ -121,14 +128,22 @@ export class PixiApp {
     this.transform.isPortrait = isPortrait;
 
     if (isPortrait) {
-      // Portrait: aspect-fit — scale to width, center vertically
-      const scale = width / WORLD.width;
+      // Focus on active combat zone: width 540 world units centered at X=600
+      const hudTop = snap.safeArea.top + (snap.deviceProfile !== "DESKTOP" ? 44 : 48);
+      const footer = snap.safeArea.bottom + (snap.deviceProfile !== "DESKTOP" ? 40 : 36);
+      const playableH = Math.max(300, height - hudTop - footer);
+      const combatWidth = 540;
+      const scale = Math.min(width / combatWidth, playableH / 680);
+
       this.transform.scaleX = scale;
       this.transform.scaleY = scale;
-      this.transform.offsetX = 0;
-      this.transform.offsetY = Math.max(0, (height - WORLD.height * scale) / 2);
+      this.transform.offsetX = (width - WORLD.width * scale) / 2;
+      this.transform.offsetY = hudTop + Math.max(0, (playableH - WORLD.height * scale) / 2);
       this.layers.root.scale.set(scale, scale);
       this.layers.root.position.set(this.transform.offsetX, this.transform.offsetY);
+
+      const isMobileDevice = snap.deviceProfile !== "DESKTOP";
+      this.mobileScaleBoost = isMobileDevice ? 1.55 : 1.0;
     } else {
       // Landscape: fill canvas
       this.transform.scaleX = width / WORLD.width;
@@ -137,11 +152,13 @@ export class PixiApp {
       this.transform.offsetY = 0;
       this.layers.root.scale.set(this.transform.scaleX, this.transform.scaleY);
       this.layers.root.position.set(0, 0);
+      const isMobileDevice = snap.deviceProfile !== "DESKTOP";
+      this.mobileScaleBoost = isMobileDevice ? 1.25 : 1.0;
     }
 
-    // Update gameplay bounds (HUD top ~48px, footer ~36px on desktop, ~40px mobile)
+    // Update gameplay bounds with current transform
     const isMobile = snap.deviceProfile !== "DESKTOP";
-    GameplayBounds.get().update(width, height, snap.safeArea, {
+    GameplayBounds.get().update(width, height, snap.safeArea, this.transform, {
       hudTopPx: isMobile ? 44 : 48,
       footerPx: isMobile ? 40 : 36,
     });
@@ -230,8 +247,9 @@ export class PixiApp {
       mix(WORLD.core.x, menuTargetX, this.menuBlend),
       mix(WORLD.core.y, menuTargetY, this.menuBlend),
     );
+    const baseCoreScale = this.transform.isPortrait ? 1.15 : 0.85;
     this.core.container.scale.set(
-      mix(0.85, this.transform.isPortrait ? 1.4 : 1.85, this.menuBlend),
+      mix(baseCoreScale, this.transform.isPortrait ? 1.4 : 1.85, this.menuBlend),
     );
     const aim = sim.target ? sim.enemies.weakPoint(sim.target) : input.point;
     this.core.update(
@@ -255,12 +273,15 @@ export class PixiApp {
     this.shield.container.visible = !menu;
     this.shield.container.position.set(input.point.x, input.point.y);
     this.shield.container.alpha = input.opacity;
+    this.shield.setMobileScale(this.transform.isPortrait ? 1.25 : 1.0);
+    const trackingWeak = input.presenceState === "WEAK" || input.presenceState === "PREDICTED";
     this.shield.update(
       this.time,
       Boolean(sim.target?.active),
       dt,
       sim.lockState === "LOCKED" ? 1 : sim.lockProgress,
       input.pinch.state !== "OPEN",
+      trackingWeak,
     );
     // Animated energy arcs — occasional distant flashes
     if (!frozen && !quality.low) {
@@ -308,18 +329,26 @@ export class PixiApp {
       sprite.visible = true;
       sprite.position.set(e.x, e.y);
       const isBoss = isBossKind(e.kind);
-      sprite.scale.set(
-        isBoss
-          ? 0.95
-          : e.scale *
-            (e.kind === "heavy" ||
-            e.kind === "magma_walker" ||
-            e.kind === "abyss_ray" ||
-            e.kind === "entropy_core"
-              ? 1.15
-              : 0.8),
-      );
-      const baseAlpha = isBoss ? 1 : 0.6 + e.depth * 0.4;
+      const isMobile = this.transform.isPortrait;
+
+      if (isBoss) {
+        // Boss: 1.35x on mobile, min 0.90 to stay clearly readable
+        sprite.scale.set(Math.max(0.9, 0.95 * (isMobile ? 1.35 : 1.0)));
+      } else {
+        // Regular enemies: apply type size modifier + mobile boost (1.55x on mobile)
+        const typeMult =
+          e.kind === "heavy" ||
+          e.kind === "magma_walker" ||
+          e.kind === "abyss_ray" ||
+          e.kind === "entropy_core"
+            ? 1.15
+            : 0.8;
+        // Minimum enemy scale: 0.45 so distant enemies are never tiny dots
+        const baseScale = Math.max(0.45, e.scale);
+        sprite.scale.set(baseScale * typeMult * (isMobile ? 1.55 : 1.0));
+      }
+
+      const baseAlpha = isBoss ? 1.0 : isMobile ? Math.max(0.78, 0.7 + e.depth * 0.3) : 0.6 + e.depth * 0.4;
       const dyingMax = isBoss ? 1.5 : 0.35;
       sprite.alpha = isDying
         ? baseAlpha * (e.dyingTime / dyingMax)
@@ -341,16 +370,17 @@ export class PixiApp {
       if (!frozen) view.animation.update(dt);
     }
     this.projectiles.clear();
+    const projScale = this.transform.isPortrait ? 1.25 : 1.0;
     for (const p of sim.projectiles.pool)
       if (p.active) {
         const color = p.team === "player" ? 0xa3f7ff : 0xff8058;
         this.projectiles
           .moveTo(p.x - p.vx * 0.018, p.y - p.vy * 0.018)
           .lineTo(p.x, p.y)
-          .stroke({ color, width: p.team === "player" ? 2 : 4, alpha: 0.85 })
-          .circle(p.x, p.y, p.team === "player" ? 2.5 : 5)
+          .stroke({ color, width: (p.team === "player" ? 2 : 4) * projScale, alpha: 0.85 })
+          .circle(p.x, p.y, (p.team === "player" ? 2.5 : 5) * projScale)
           .fill(color)
-          .circle(p.x, p.y, 9)
+          .circle(p.x, p.y, 9 * projScale)
           .fill({ color, alpha: 0.08 });
       }
     this.target.clear();

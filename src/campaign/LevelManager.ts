@@ -1,16 +1,7 @@
 import type { CombatSimulation } from "../gameplay/CombatSimulation";
 import type { LevelConfig, WaveDefinition } from "./LevelConfig";
 import { DifficultyDirector, type ComputedDifficulty } from "./DifficultyDirector";
-
-const SPAWN_ORIGINS = [
-  { x: 150, y: 120 },
-  { x: 600, y: 90 },
-  { x: 1040, y: 140 },
-  { x: 100, y: 340 },
-  { x: 1100, y: 320 },
-  { x: 450, y: 130 },
-  { x: 750, y: 130 },
-];
+import { MobileSpawnMapper } from "../gameplay/MobileSpawnMapper";
 
 export interface LevelCompletionSummary {
   levelId: number;
@@ -59,7 +50,7 @@ export class LevelManager {
   private spawnBoss(kind: import("../gameplay/gameBalance").EnemyKind, sim: CombatSimulation) {
     if (this.bossSpawned) return;
     this.bossSpawned = true;
-    sim.enemies.spawn(kind, { x: 600, y: 180 });
+    sim.enemies.spawn(kind, MobileSpawnMapper.getBossOrigin());
   }
 
   update(dt: number, sim: CombatSimulation): boolean {
@@ -82,7 +73,7 @@ export class LevelManager {
         const summonLimit = boss.kind === "fracture_architect" ? 6 : 4;
         if (this.bossSummonTimer > 4.5 && sim.enemies.active.length < summonLimit) {
           this.bossSummonTimer = 0;
-          const origin = SPAWN_ORIGINS[Math.floor(Math.random() * SPAWN_ORIGINS.length)];
+          const origin = MobileSpawnMapper.getOrigin(Math.floor(Math.random() * 8));
           const minionKind =
             boss.kind === "fracture_architect"
               ? "null_hunter"
@@ -111,8 +102,7 @@ export class LevelManager {
       this.spawnedInWave < currentWave.count &&
       sim.enemies.active.length < this.computedDiff.maxConcurrentEnemies
     ) {
-      const originIndex = (this.spawnedInWave * 3 + this.currentWaveIndex) % SPAWN_ORIGINS.length;
-      const origin = SPAWN_ORIGINS[originIndex];
+      const origin = MobileSpawnMapper.getOrigin(this.spawnedInWave * 3 + this.currentWaveIndex);
       const kind = currentWave.types[this.spawnedInWave % currentWave.types.length];
       const speedScale = (currentWave.speedScale ?? 1.0) * this.computedDiff.enemySpeedScale;
 

@@ -1,13 +1,7 @@
 import { balance } from "./gameBalance";
 import type { CombatSimulation } from "./CombatSimulation";
-const origins = [
-  { x: 150, y: 120 },
-  { x: 600, y: 90 },
-  { x: 1040, y: 140 },
-  { x: 100, y: 340 },
-  { x: 1100, y: 320 },
-  { x: 450, y: 130 },
-];
+import { MobileSpawnMapper } from "./MobileSpawnMapper";
+
 export class WaveManager {
   wave = 1;
   spawned = 0;
@@ -19,7 +13,7 @@ export class WaveManager {
     this.timer = 0.8;
     this.bossSummon = 0;
     sim.difficulty = 1 + (wave - 1) * 0.07;
-    if (wave === 5) sim.enemies.spawn("boss", { x: 600, y: 180 });
+    if (wave === 5) sim.enemies.spawn("boss", MobileSpawnMapper.getBossOrigin());
   }
   update(dt: number, sim: CombatSimulation) {
     if (this.wave === 5) {
@@ -29,7 +23,7 @@ export class WaveManager {
         this.bossSummon += dt;
         if (this.bossSummon > 5 && sim.enemies.active.length < 8) {
           this.bossSummon = 0;
-          const origin = origins[this.spawned++ % origins.length];
+          const origin = MobileSpawnMapper.getOrigin(this.spawned++);
           sim.enemies.spawn("scout", origin);
           sim.onEvent({ type: "portal", ...origin });
         }
@@ -43,7 +37,7 @@ export class WaveManager {
       this.spawned < wave.count &&
       sim.enemies.active.length < 25
     ) {
-      const origin = origins[(this.spawned * 5 + this.wave) % origins.length];
+      const origin = MobileSpawnMapper.getOrigin((this.spawned * 5 + this.wave));
       sim.enemies.spawn(wave.types[this.spawned % wave.types.length], origin);
       sim.onEvent({ type: "portal", ...origin });
       this.spawned++;

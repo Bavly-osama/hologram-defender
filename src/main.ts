@@ -2,8 +2,15 @@
 import "pixi.js/unsafe-eval";
 import "./style.css";
 import { Game } from "./core/Game";
+import { GameplayBounds } from "./gameplay/GameplayBounds";
+import { MobileSpawnMapper } from "./gameplay/MobileSpawnMapper";
+
 const root = document.querySelector<HTMLElement>("#app")!;
 const game = new Game(root);
+(window as unknown as Record<string, unknown>).game = game;
+(window as unknown as Record<string, unknown>).GameplayBounds = GameplayBounds;
+(window as unknown as Record<string, unknown>).MobileSpawnMapper = MobileSpawnMapper;
+
 if (import.meta.env.DEV)
   Object.defineProperty(window, "__defenderDebug", {
     value: { snapshot: () => game.debugSnapshot() },

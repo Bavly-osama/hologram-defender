@@ -24,6 +24,7 @@ import { isBossKind } from "../gameplay/gameBalance";
 import { AuthService } from "../auth/AuthService";
 import { AuthScreen } from "../auth/AuthScreen";
 import { ViewportManager } from "../rendering/ViewportManager";
+import { GameplayBounds } from "../gameplay/GameplayBounds";
 
 
 
@@ -648,20 +649,27 @@ export class Game {
   }
   private updateDebug() {
     if (!this.debug) return;
-    const cameraOn = this.input.mode === "hand" && this.input.tracker.state === "READY";
-    const handDetected = this.input.mode === "hand" && this.input.active;
-    const lockDesc =
-      this.sim.lockState === "LOCKING"
-        ? `LOCKING (${(this.sim.lockProgress * 100).toFixed(0)}%)`
-        : this.sim.lockState;
+    const isHand = this.input.mode === "hand";
+    const gb = GameplayBounds.get();
+    const wb = gb.worldBounds;
+    const handRaw = isHand && this.input.landmarks.length > 0;
+    const presence = this.input.presenceState;
+    const confidencePct = Math.round(this.input.confidence * 100);
+    const rawP = this.input.rawPalm;
+    const filtP = this.input.filteredPalm;
+    const tgtP = this.input.targetPalm;
+    const shieldP = this.input.point;
+    const visibleEnemies = this.sim.enemies.visible.length;
 
     this.hud.el("debug").textContent =
-      `CAMERA: ${cameraOn ? "ON" : "OFF"} | TRACK: ${this.input.tracker.trackingFps.toFixed(0)} FPS | RENDER: ${this.quality.fps.toFixed(0)} FPS\n` +
-      `HAND DETECTED: ${handDetected ? "YES" : "NO"} | HAND/POINTER: ${this.input.point.x.toFixed(0)}, ${this.input.point.y.toFixed(0)}\n` +
-      `TARGET: ${this.sim.target?.active ? `${this.sim.target.kind} (#${this.sim.target.id})` : "NONE"} | LOCK: ${lockDesc}\n` +
-      `AUTO-FIRE: ${this.sim.autoFireEnabled ? (this.sim.lockState === "LOCKED" ? "FIRING" : "ARMED") : "OFF"} | PROFILE: ${this.quality.profile}\n` +
-      `ENEMIES: ${this.sim.enemies.active.length} | PROJECTILES: ${this.sim.projectiles.active.length} | PARTICLES: ${this.view.effects.count}\n` +
-      `STATE: ${this.state.current} | PINCH: ${this.input.pinch.state}`;
+      `HAND RAW: ${handRaw ? "YES" : "NO"} | PRESENCE: ${presence} | CONFIDENCE: ${confidencePct}%\n` +
+      `RAW: (${(rawP.x * 100).toFixed(1)}%, ${(rawP.y * 100).toFixed(1)}%) | FILT: (${(filtP.x * 100).toFixed(1)}%, ${(filtP.y * 100).toFixed(1)}%) | TGT: (${(tgtP.x * 100).toFixed(1)}%, ${(tgtP.y * 100).toFixed(1)}%)\n` +
+      `SHIELD X/Y: ${shieldP.x.toFixed(0)}, ${shieldP.y.toFixed(0)} | OPACITY: ${(this.input.opacity * 100).toFixed(0)}%\n` +
+      `TRACK FPS: ${this.input.tracker.trackingFps.toFixed(0)} | CAM FPS: ${this.input.tracker.cameraFps.toFixed(0)} | RENDER FPS: ${this.quality.fps.toFixed(0)}\n` +
+      `MOBILE SCALE: ${this.view.mobileScaleBoost.toFixed(2)}x | PORTRAIT: ${this.view.transform.isPortrait ? "YES" : "NO"}\n` +
+      `GAMEPLAY BOUNDS: [${wb.left.toFixed(0)}..${wb.right.toFixed(0)}] x [${wb.top.toFixed(0)}..${wb.bottom.toFixed(0)}]\n` +
+      `ENEMIES: ${this.sim.enemies.active.length} active | VISIBLE: ${visibleEnemies} | PARTICLES: ${this.view.effects.count}\n` +
+      `STATE: ${this.state.current} | LOCK: ${this.sim.lockState}`;
   }
   debugSnapshot() {
     return {

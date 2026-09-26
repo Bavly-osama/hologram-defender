@@ -41,6 +41,7 @@ function toLegacyState(s: CameraBootState): CameraState {
 interface WorkerReply {
   type: "ready" | "result" | "error";
   landmarks?: Landmark[];
+  confidence?: number;
   message?: string;
 }
 
@@ -71,13 +72,15 @@ export class HandTracker {
   private inferenceCount = 0;
   private meterTime = 0;
   private lastHandTime = -Infinity;
+  private hasNewFrame = true;
 
   cameraFps = 0;
   trackingFps = 0;
+  confidence = 0;
   lastResult = 0;
   interval = 50;
 
-  onLandmarks: (landmarks: Landmark[], time: number) => void = () => {};
+  onLandmarks: (landmarks: Landmark[], time: number, confidence?: number) => void = () => {};
   /** Called with both legacy CameraState AND a human-readable message */
   onState: (state: CameraState, message: string) => void = () => {};
   /** Called with the full 12-state name */
@@ -104,14 +107,17 @@ export class HandTracker {
       if (!navigator.mediaDevices?.getUserMedia)
         throw new Error("Camera requires HTTPS or localhost");
 
-      // Mobile-resilient constraints: ideal 640×480 → bare facingMode fallback
+      // Mobile-optimized constraints: 480x360 on mobile (lighter, faster), 640x480 on desktop
+      const idealW = isTouch ? 480 : 640;
+      const idealH = isTouch ? 360 : 480;
+
       let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: "user",
-            width: { ideal: 640, max: 640 },
-            height: { ideal: 480, max: 480 },
+            width: { ideal: idealW, max: idealW },
+            height: { ideal: idealH, max: idealH },
             frameRate: { ideal: 24, max: 30 },
           },
           audio: false,
@@ -119,7 +125,11 @@ export class HandTracker {
       } catch {
         try {
           stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: "user" },
+            video: {
+              facingMode: "user",
+              width: { ideal: 320, max: 480 },
+              height: { ideal: 240, max: 360 },
+            },
             audio: false,
           });
         } catch {
@@ -168,6 +178,17 @@ export class HandTracker {
       ]).catch(() => {
         // Play rejection is non-fatal on some browsers; continue
       });
+
+      // Hook requestVideoFrameCallback if available to synchronize frame capture
+      if ("requestVideoFrameCallback" in vid) {
+        const onFrame = () => {
+          if (generation === this.generation && this.stream) {
+            this.hasNewFrame = true;
+            (vid as HTMLVideoElement & { requestVideoFrameCallback: (cb: () => void) => void }).requestVideoFrameCallback(onFrame);
+          }
+        };
+        (vid as HTMLVideoElement & { requestVideoFrameCallback: (cb: () => void) => void }).requestVideoFrameCallback(onFrame);
+      }
 
       // ── STATE 3: VIDEO_PLAYING ───────────────────────────────────────────
       this._change("VIDEO_PLAYING", "Video playing · loading hand AI");
@@ -231,6 +252,7 @@ export class HandTracker {
             this.lastResult = performance.now();
             this.inferenceCount++;
             const landmarks = event.data.landmarks ?? [];
+            this.confidence = event.data.confidence ?? (landmarks.length > 0 ? 0.85 : 0);
 
             if (landmarks.length > 0) {
               this.lastHandTime = this.lastResult;
@@ -260,7 +282,7 @@ export class HandTracker {
               }
             }
 
-            this.onLandmarks(landmarks, this.lastResult);
+            this.onLandmarks(landmarks, this.lastResult, this.confidence);
           }
         };
 
@@ -320,6 +342,11 @@ export class HandTracker {
     if (!this.worker || this.video.readyState < 2 || this.video.videoWidth === 0)
       return;
 
+    // If requestVideoFrameCallback is supported, only run inference on fresh camera frames
+    if ("requestVideoFrameCallback" in this.video && !this.hasNewFrame) {
+      return;
+    }
+
     if (this.video.currentTime !== this.lastFrame) {
       this.frameCount++;
       this.lastFrame = this.video.currentTime;
@@ -340,6 +367,7 @@ export class HandTracker {
       return;
 
     this.busy = true;
+    this.hasNewFrame = false;
     this.lastInference = now;
     const worker = this.worker;
 

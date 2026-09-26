@@ -29,9 +29,9 @@ self.onmessage = async (
           },
           runningMode: "VIDEO",
           numHands: 1,
-          minHandDetectionConfidence: 0.55,
-          minHandPresenceConfidence: 0.55,
-          minTrackingConfidence: 0.55,
+          minHandDetectionConfidence: 0.60,
+          minHandPresenceConfidence: 0.50,
+          minTrackingConfidence: 0.40,
         });
       } catch (modelErr) {
         console.warn("[Worker] Local model failed, falling back to CDN", modelErr);
@@ -43,18 +43,20 @@ self.onmessage = async (
           },
           runningMode: "VIDEO",
           numHands: 1,
-          minHandDetectionConfidence: 0.55,
-          minHandPresenceConfidence: 0.55,
-          minTrackingConfidence: 0.55,
+          minHandDetectionConfidence: 0.60,
+          minHandPresenceConfidence: 0.50,
+          minTrackingConfidence: 0.40,
         });
       }
 
       self.postMessage({ type: "ready" });
     } else if (tracker && event.data.bitmap) {
       const result = tracker.detectForVideo(event.data.bitmap, event.data.time);
+      const score = result.handedness?.[0]?.[0]?.score ?? (result.landmarks[0]?.length ? 0.8 : 0);
       self.postMessage({
         type: "result",
         landmarks: result.landmarks[0] ?? [],
+        confidence: score,
       });
     }
   } catch (error) {

@@ -23,9 +23,19 @@ describe("intentional one-hand controls", () => {
   it("holds briefly, fades, then hides lost landmarks", () => {
     const presence = new HandPresenceManager();
     presence.seen(100);
-    expect(presence.opacity(200)).toBe(1);
-    expect(presence.opacity(350)).toBeCloseTo(0.5);
-    expect(presence.opacity(500)).toBe(0);
+    // 0–180ms missing: fully visible
+    expect(presence.opacity(250)).toBe(1);
+    expect(presence.presenceState).toBe("VISIBLE");
+    // 180–350ms missing: still fully visible in WEAK state
+    expect(presence.opacity(400)).toBe(1);
+    expect(presence.presenceState).toBe("WEAK");
+    // 350–600ms missing: fades slightly in PREDICTED state
+    expect(presence.opacity(550)).toBeLessThan(1);
+    expect(presence.opacity(550)).toBeGreaterThan(0.4);
+    expect(presence.presenceState).toBe("PREDICTED");
+    // >600ms missing: enters LOST state
+    expect(presence.opacity(800)).toBe(0);
+    expect(presence.presenceState).toBe("LOST");
   });
 });
 describe("game lifecycle", () => {

@@ -173,10 +173,18 @@ export class ShieldVisual {
     dt = 0.016,
     _lockProgress = 0,
     pinching = false,
+    trackingWeak = false,
   ) {
     // 1. Subtle breathing and idle rotation
     this.orbitalRings.rotation = -0.35 + Math.sin(time * 0.8) * 0.15;
     this.hexMatrix.alpha = 0.65 + Math.sin(time * 3) * 0.25;
+
+    // Tracking weakness feedback: gentle pulse/soft glow reduction instead of disappearing
+    if (trackingWeak) {
+      this.glow.alpha = 0.45 + Math.sin(time * 6) * 0.15;
+    } else {
+      this.glow.alpha = 1.0;
+    }
 
     // 2. Reticle lock state
     this.pointer.scale.set(locked ? 0.85 : 1);
@@ -211,10 +219,15 @@ export class ShieldVisual {
 
     // 4. Pinch / lock scale
     const baseScale = pinching ? 0.92 : locked ? 1.05 : 1.0;
-    this.container.scale.set(baseScale * this.scaleMultiplier);
+    this.container.scale.set(baseScale * this.scaleMultiplier * this.mobileScale);
   }
 
   private scaleMultiplier = 1.0;
+  private mobileScale = 1.0;
+
+  setMobileScale(scale: number) {
+    this.mobileScale = scale;
+  }
 
   setSkin(tint: number) {
     this.container.tint = tint;
