@@ -50,11 +50,17 @@ button:disabled {
   display: none !important;
 }
 #app {
-  position: relative;
-  width: 100%;
-  height: 100svh;
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
   min-height: 570px;
   overflow: hidden;
+  padding:
+    env(safe-area-inset-top, 0px)
+    env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px)
+    env(safe-area-inset-left, 0px);
   background:
     radial-gradient(ellipse at 74% 44%, #102b3b66, transparent 48%),
     linear-gradient(125deg, #070e16, #06131d 70%, #080f18);
@@ -910,14 +916,14 @@ input {
 }
 @media (max-width: 699px) {
   #app {
-    min-height: 100svh;
-    height: 100svh;
+    min-height: 0;
+    /* 100dvh is already set on #app globally */
   }
   .masthead {
-    top: 12px;
-    left: 4%;
-    right: 4%;
-    gap: 8px;
+    top: 8px;
+    left: 3%;
+    right: 3%;
+    gap: 6px;
     justify-content: space-between;
   }
   .station {
@@ -1027,11 +1033,12 @@ input {
     margin: 0;
   }
   .statusbar {
-    left: 6%;
-    right: 6%;
-    bottom: 15px;
+    left: 3%;
+    right: 3%;
+    bottom: 8px;
     flex-wrap: wrap;
-    gap: 14px;
+    gap: 10px;
+    padding-left: 136px; /* leave room for camera preview */
   }
   .control-status {
     max-width: 100%;
@@ -1045,16 +1052,16 @@ input {
   #rotate {
     display: block;
     position: absolute;
-    bottom: 65px;
-    left: 6%;
-    right: 6%;
+    bottom: 52px;
+    left: 140px; /* avoid camera preview */
+    right: 3%;
     text-align: center;
     font-size: 9px;
     color: #617d8d;
     pointer-events: none;
   }
   #app[data-state="CAMERA_READY"] #rotate {
-    bottom: 65px;
+    bottom: 52px;
   }
   #hud {
     top: 95px;
@@ -2100,6 +2107,81 @@ input {
 .syncing-bar { width: 240px; height: 3px; background: rgba(155,233,238,.1); border-radius: 2px; overflow: hidden; position: relative; }
 .syncing-fill { display: block; height: 100%; width: 40%; background: var(--cyan); border-radius: 2px; animation: syncSlide 1.4s ease-in-out infinite; }
 @keyframes syncSlide { 0%{transform:translateX(-200%)} 100%{transform:translateX(350%)} }
+
+/* ── Non-blocking camera status overlay ────────────────────────────────── */
+.camera-status-overlay {
+  position: absolute;
+  bottom: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+  z-index: 6;
+}
+.cam-status-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(5,18,28,.75);
+  border: 1px solid rgba(125,234,244,.2);
+  padding: 7px 14px;
+  border-radius: 2px;
+  backdrop-filter: blur(4px);
+}
+.cam-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #71bdcb;
+  flex-shrink: 0;
+}
+.cam-status-dot.cam-busy {
+  background: #ffc060;
+  animation: cam-blink .9s infinite alternate;
+}
+@keyframes cam-blink { from { opacity: .4; } to { opacity: 1; } }
+.cam-status-text {
+  font: 9px var(--mono);
+  letter-spacing: .08em;
+  color: #9be9ee;
+}
+.cam-fallback-btn {
+  pointer-events: auto;
+  font-size: 9px;
+  letter-spacing: .08em;
+  padding: 8px 16px;
+  min-height: 36px;
+}
+
+/* ── Camera preview HUD (bottom-left, managed by CameraPreview.ts) ─────── */
+#camera-preview-hud {
+  /* Sizing and position set by CameraPreview.ts inline styles */
+  /* This class is for any global overrides */
+}
+
+@media (max-width: 699px) {
+  .camera-status-overlay {
+    bottom: 44px;
+    left: 140px;
+    transform: none;
+    align-items: flex-start;
+  }
+  .cam-status-inner {
+    padding: 5px 10px;
+  }
+  .cam-status-text {
+    font-size: 8px;
+  }
+  .cam-fallback-btn {
+    font-size: 8px;
+    padding: 6px 12px;
+    min-height: 32px;
+  }
+}
+
 .syncing-sub { font-size: 10px; font-family: var(--mono); color: var(--muted); letter-spacing: 0.08em; }
 .player-badge { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 0.08em; cursor: pointer; padding: 4px 10px; border: 1px solid rgba(155,233,238,.12); border-radius: 2px; transition: border-color .2s; background: none; }
 .player-badge:hover { border-color: rgba(155,233,238,.3); color: var(--cyan); }

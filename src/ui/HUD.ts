@@ -144,7 +144,16 @@ export class HUD {
 
   camera(message: string, busy: boolean) {
     const touch = this.isTouch;
-    this.overlay.innerHTML = `<div class="modal camera-modal"><span class="eyebrow">SPATIAL CONTROL / ONE HAND</span><div class="camera-glyph">⌖</div><h2>${busy ? "Establishing hand control" : "Your hand is the controller"}</h2><p id="permission-message"></p><p class="muted">Keep one hand in view, with light on your fingers.<br>Move to aim and shield. The Quantum Core auto-fires on locked targets.</p><button class="primary" id="fallback" style="margin-top: 14px;">${touch ? "PLAY WITH TOUCH CONTROLS ↗" : "Use mouse instead →"}</button></div>`;
+    // Non-blocking lightweight status — no full-screen modal that wastes space
+    // The CameraPreview widget shows the camera feed + status bottom-left.
+    // We only show a small in-overlay indicator with a fallback button.
+    this.overlay.innerHTML = `<div class="camera-status-overlay">
+      <div class="cam-status-inner">
+        <span class="cam-status-dot${busy ? " cam-busy" : ""}"></span>
+        <span id="permission-message" class="cam-status-text"></span>
+      </div>
+      <button class="secondary cam-fallback-btn" id="fallback">${touch ? "TOUCH CONTROLS →" : "MOUSE MODE →"}</button>
+    </div>`;
     this.set("permission-message", message);
     this.el("fallback").onclick = () => this.onStart("mouse");
   }

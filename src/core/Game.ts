@@ -23,6 +23,7 @@ import { getStageByLevelId, STAGES } from "../campaign/StageConfig";
 import { isBossKind } from "../gameplay/gameBalance";
 import { AuthService } from "../auth/AuthService";
 import { AuthScreen } from "../auth/AuthScreen";
+import { ViewportManager } from "../rendering/ViewportManager";
 
 
 
@@ -97,6 +98,17 @@ export class Game {
 
     this.bind();
     this.connectSimulation();
+
+    // ── Wire ViewportManager → CameraPreview layout ────────────────────────
+    const vm = ViewportManager.get();
+    const updatePreviewLayout = () => {
+      const snap = vm.snap;
+      const isMobile = snap.deviceProfile !== "DESKTOP";
+      this.input?.tracker?.preview?.updateLayout(snap.isPortrait, isMobile);
+    };
+    vm.onChange(updatePreviewLayout);
+    // Update once immediately
+    updatePreviewLayout();
 
     // ── Load initial planetary stage assets on boot so space & planet are visible ──
     const initialStage = this.campaign.stageManager.currentStage;
@@ -255,7 +267,20 @@ export class Game {
         if (this.state.current === "CAMERA_PERMISSION")
           void this.start("mouse");
       }
+      // Show non-blocking camera overlay only while loading
       if (state === "LOADING") this.hud.camera(message, true);
+      // Clear camera overlay when tracking is ready
+      if (state === "READY") {
+        // Remove the camera loading overlay if still showing
+        const camOverlay = this.hud.root.querySelector(".camera-status-overlay");
+        if (camOverlay) (camOverlay as HTMLElement).style.display = "none";
+      }
+    };
+    // Keep CameraPreview landmarks fresh
+    const origOnLandmarks = this.input.tracker.onLandmarks.bind(this.input.tracker);
+    this.input.tracker.onLandmarks = (landmarks, time) => {
+      this.input.tracker.preview.setLandmarks(landmarks);
+      origOnLandmarks(landmarks, time);
     };
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) this.state.pause();

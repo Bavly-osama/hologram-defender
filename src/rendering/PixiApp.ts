@@ -15,6 +15,8 @@ import type { PerformanceManager } from "../performance/PerformanceManager";
 import { isBossKind, type EnemyKind } from "../gameplay/gameBalance";
 import type { AssetId } from "../assets/AssetManifest";
 import { StageBackgroundManager } from "./StageBackgroundManager";
+import { ViewportManager } from "./ViewportManager";
+import { GameplayBounds } from "../gameplay/GameplayBounds";
 
 const ids: Record<EnemyKind, AssetId> = {
   scout: "SCOUT_DRONE",
@@ -114,20 +116,21 @@ export class PixiApp {
 
   private resize() {
     const { width, height } = this.app.screen;
+    const snap = ViewportManager.get().snap;
     const isPortrait = height > width;
     this.transform.isPortrait = isPortrait;
 
     if (isPortrait) {
-      // In portrait orientation, maintain proportional 1:1 scale (no vertical stretch)
+      // Portrait: aspect-fit — scale to width, center vertically
       const scale = width / WORLD.width;
       this.transform.scaleX = scale;
       this.transform.scaleY = scale;
       this.transform.offsetX = 0;
-      // Center the combat playfield vertically in the portrait viewport
       this.transform.offsetY = Math.max(0, (height - WORLD.height * scale) / 2);
       this.layers.root.scale.set(scale, scale);
       this.layers.root.position.set(this.transform.offsetX, this.transform.offsetY);
     } else {
+      // Landscape: fill canvas
       this.transform.scaleX = width / WORLD.width;
       this.transform.scaleY = height / WORLD.height;
       this.transform.offsetX = 0;
@@ -135,6 +138,13 @@ export class PixiApp {
       this.layers.root.scale.set(this.transform.scaleX, this.transform.scaleY);
       this.layers.root.position.set(0, 0);
     }
+
+    // Update gameplay bounds (HUD top ~48px, footer ~36px on desktop, ~40px mobile)
+    const isMobile = snap.deviceProfile !== "DESKTOP";
+    GameplayBounds.get().update(width, height, snap.safeArea, {
+      hudTopPx: isMobile ? 44 : 48,
+      footerPx: isMobile ? 40 : 36,
+    });
   }
   private background() {
     for (let i = 0; i < 150; i++) {
