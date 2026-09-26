@@ -7,8 +7,8 @@
  */
 import { mix, type Point } from "../core/Config";
 
-/** Dead zone in normalized coords — movements smaller than this are damped */
-const DEAD_ZONE = 0.008;
+/** Dead zone in normalized coords — movements smaller than this are damped (0.003 is ~1px on camera) */
+const DEAD_ZONE = 0.003;
 
 /** How much velocity contributes to prediction (max prediction horizon in seconds) */
 const MAX_PREDICT_SECONDS = 0.12;
@@ -38,16 +38,15 @@ export class HandSmoother {
     const dy = this.target.y - this.point.y;
     const dist = Math.hypot(dx, dy);
 
-    // Apply dead zone — dampen micro-jitter
+    // Apply dead zone — dampen camera micro-tremors without sacrificing fine aiming
     const effectiveDist = Math.max(0, dist - DEAD_ZONE);
     const effectiveDx = dist > 0 ? (dx / dist) * effectiveDist : 0;
     const effectiveDy = dist > 0 ? (dy / dist) * effectiveDist : 0;
 
-    // Speed-dependent responsiveness:
-    //   dist < 0.02 (slow): responsiveness ~12  → very smooth
-    //   dist 0.02–0.12 (medium): ~15–42
-    //   dist > 0.12 (fast): up to 60            → very responsive
-    const responsiveness = 12 + Math.min(48, effectiveDist * 280);
+    // Fast, responsive exponential smoothing:
+    //   slow/holding: responsiveness ~22 → 90% in 2 frames, zero micro-jitter
+    //   moving: responsiveness up to 90 → near-instant tracking, zero lag
+    const responsiveness = 22 + Math.min(68, effectiveDist * 380);
     const alpha = 1 - Math.exp(-responsiveness * dt);
 
     const newX = this.point.x + effectiveDx * alpha;

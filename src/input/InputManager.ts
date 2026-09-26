@@ -139,13 +139,18 @@ export class InputManager {
         p = this.palmSmoother.update(dt);
       }
 
+      // Natural reach amplification: maps comfortable camera hand range [0.16..0.84] / [0.18..0.82]
+      // to full [0..1] range so gestures effortlessly sweep the entire screen without losing tracking.
+      const reachX = clamp((p.x - 0.16) / (0.84 - 0.16), 0, 1);
+      const reachY = clamp((p.y - 0.18) / (0.82 - 0.18), 0, 1);
+
       let point: Point;
       const gb = GameplayBounds.get();
       if (gb.isPortrait) {
         // Map across visible mobile gameplay rect so hand movement spans the full visible phone screen
-        point = gb.toWorld(p.x, p.y, 30, 25);
+        point = gb.toWorld(reachX, reachY, 30, 25);
       } else {
-        point = { x: p.x * WORLD.width, y: p.y * WORLD.height };
+        point = { x: reachX * WORLD.width, y: reachY * WORLD.height };
       }
 
       if (this.opacity > 0) this.moved += distance(point, this.point);

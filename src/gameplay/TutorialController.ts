@@ -20,11 +20,10 @@ export class TutorialController {
   update(dt: number, sim: CombatSimulation, input: InputManager): boolean {
     this.time += dt;
 
-    // STEP 0: "MOVE YOUR HAND"
+    // STEP 0: "MOVE YOUR HAND / AIM RETICLE"
     if (
       this.step === 0 &&
-      input.moved - this.movementStart > 120 &&
-      input.active
+      ((input.moved - this.movementStart > 60 && input.active) || this.time > 1.5)
     ) {
       this.step = 1;
       this.time = 0;

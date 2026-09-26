@@ -354,8 +354,8 @@ export class Game {
       this.state.set("PAUSED");
       this.hud.paused();
     } else {
-      this.reset();
-      this.begin();
+      const levelId = this.campaign.currentLevelId || 1;
+      void this.launchLevel(levelId);
     }
   }
   private reset() {
@@ -439,7 +439,7 @@ export class Game {
     this.input.update(dt, time);
     if (!document.hidden && rawDt < 0.3 && this.quality.update(rawDt))
       this.view.setQuality(this.quality);
-    this.input.tracker.interval = this.quality.low ? 80 : 50;
+    this.input.tracker.interval = 16;
     if (
       this.state.interactive &&
       this.state.elapsed > 1.8 &&
@@ -535,7 +535,9 @@ export class Game {
     if (this.tutorial.update(dt, this.sim, this.input)) {
       settings.tutorial = true;
       saveSettings();
+      const levelId = this.campaign.currentLevelId || 1;
       this.reset();
+      this.campaign.startLevel(levelId, this.sim);
       this.state.set("COUNTDOWN");
       this.hud.banner("DEFENSE SYSTEM ONLINE", "3", "Protect the Quantum Core");
       return;

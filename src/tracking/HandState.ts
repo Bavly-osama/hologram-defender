@@ -15,19 +15,17 @@ export const normalizeHandPoint = (point: Point): Point => ({
 
 /**
  * Compute a stable palm center from landmarks:
- * wrist(0), index-MCP(5), middle-MCP(9), ring-MCP(13), pinky-MCP(17)
- * These are the most stable, low-noise landmarks compared to fingertips.
+ * 70% MCPs (knuckles: 5, 9, 13, 17) + 30% wrist (0).
+ * Balances palm geometry for direct, natural kinematic feel.
  */
 export function palmCenter(landmarks: Landmark[]): Point {
   if (landmarks.length < 18) return normalizeHandPoint(landmarks[0] ?? { x: 0.5, y: 0.5, z: 0 });
-  const indices = [0, 5, 9, 13, 17];
-  let sx = 0, sy = 0;
-  for (const i of indices) {
-    sx += landmarks[i].x;
-    sy += landmarks[i].y;
-  }
-  const n = indices.length;
-  return normalizeHandPoint({ x: sx / n, y: sy / n });
+  const mcpX = (landmarks[5].x + landmarks[9].x + landmarks[13].x + landmarks[17].x) / 4;
+  const mcpY = (landmarks[5].y + landmarks[9].y + landmarks[13].y + landmarks[17].y) / 4;
+  const wrist = landmarks[0];
+  const px = mcpX * 0.70 + wrist.x * 0.30;
+  const py = mcpY * 0.70 + wrist.y * 0.30;
+  return normalizeHandPoint({ x: px, y: py });
 }
 
 // ── Hand presence states ────────────────────────────────────────────────────
