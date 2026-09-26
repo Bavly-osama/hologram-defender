@@ -1,30 +1,49 @@
 import { expect, test } from "@playwright/test";
-test("landscape touch controls and portrait recommendation remain usable", async ({
+
+test("mobile responsive layout, portrait adaptation, and touch controls", async ({
   browser,
 }) => {
   const context = await browser.newContext({
-    viewport: { width: 667, height: 375 },
+    viewport: { width: 390, height: 844 }, // Typical modern mobile portrait
     hasTouch: true,
     isMobile: true,
     deviceScaleFactor: 3,
   });
   const page = await context.newPage();
   await page.goto("/");
-  await expect(
-    page.getByRole("button", { name: "Play with mouse" }),
-  ).toBeVisible();
+
+  // Skip auth screen if shown
+  const skipBtn = page.locator("#auth-skip-btn");
+  if (await skipBtn.isVisible({ timeout: 4000 }).catch(() => false)) {
+    await skipBtn.click();
+  }
+
+  // Verify responsive home screen rendered without horizontal overflow
+  await expect(page.locator(".brand")).toBeVisible();
+  const fitsWidth = await page.evaluate(
+    () => document.documentElement.scrollWidth <= window.innerWidth,
+  );
+  expect(fitsWidth).toBe(true);
+
+  // Take mobile portrait screenshot
+  await page.screenshot({ path: "test-results/mobile-portrait-home.png" });
+
+  // Start campaign in touch mode
+  const playTouchBtn = page.locator("#start-mouse");
+  await expect(playTouchBtn).toBeVisible();
+  await playTouchBtn.tap();
+
+  // Test touch interaction on canvas
+  await page.touchscreen.tap(195, 420);
+  await page.touchscreen.tap(220, 380);
+
+  // Switch to landscape orientation and verify adaptation
+  await page.setViewportSize({ width: 844, height: 390 });
+  const fitsLandscape = await page.evaluate(
+    () => document.documentElement.scrollWidth <= window.innerWidth,
+  );
+  expect(fitsLandscape).toBe(true);
+
   await page.screenshot({ path: "test-results/mobile-landscape.png" });
-  await page.getByRole("button", { name: "Play with mouse" }).tap();
-  await page.touchscreen.tap(300, 180);
-  await page.touchscreen.tap(500, 180);
-  await expect(page.locator("#tutorial-title")).toHaveText("AIM AT THE TARGET");
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.locator("#rotate")).toBeVisible();
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    ),
-  ).toBe(true);
-  await page.screenshot({ path: "test-results/mobile-portrait.png" });
   await context.close();
 });

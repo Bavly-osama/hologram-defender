@@ -1,9 +1,16 @@
-import { WORLD, distance, type Point } from "../core/Config";
+import { WORLD, distance, clamp, type Point } from "../core/Config";
 import { settings, saveSettings, type ControlMode } from "../core/Settings";
 import { PinchRecognizer } from "../gestures/PinchRecognizer";
 import { HandTracker } from "../tracking/HandTracker";
 import { HandPresenceManager, normalizeHandPoint } from "../tracking/HandState";
 import { HandSmoother } from "../tracking/HandSmoother";
+export interface ScreenTransform {
+  scaleX: number;
+  scaleY: number;
+  offsetX: number;
+  offsetY: number;
+}
+
 export class InputManager {
   mode: ControlMode = settings.mode;
   point: Point = { x: 600, y: 400 };
@@ -16,14 +23,28 @@ export class InputManager {
   private smoother = new HandSmoother();
   private queued = false;
   private lastSeen = -Infinity;
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    getTransform?: () => ScreenTransform,
+  ) {
     const move = (event: PointerEvent) => {
       if (this.mode !== "mouse") return;
       const rect = canvas.getBoundingClientRect();
-      const point = {
-        x: ((event.clientX - rect.left) / rect.width) * WORLD.width,
-        y: ((event.clientY - rect.top) / rect.height) * WORLD.height,
-      };
+      let point: Point;
+      if (getTransform) {
+        const t = getTransform();
+        const px = event.clientX - rect.left;
+        const py = event.clientY - rect.top;
+        point = {
+          x: clamp((px - t.offsetX) / t.scaleX, 0, WORLD.width),
+          y: clamp((py - t.offsetY) / t.scaleY, 0, WORLD.height),
+        };
+      } else {
+        point = {
+          x: ((event.clientX - rect.left) / rect.width) * WORLD.width,
+          y: ((event.clientY - rect.top) / rect.height) * WORLD.height,
+        };
+      }
       this.moved += distance(point, this.point);
       this.point = point;
     };
@@ -32,9 +53,20 @@ export class InputManager {
       move(event);
       if (this.mode === "mouse") {
         this.queued = true;
-        canvas.setPointerCapture(event.pointerId);
+        try {
+          canvas.setPointerCapture(event.pointerId);
+        } catch {}
       }
     });
+    const release = (event: PointerEvent) => {
+      try {
+        if (canvas.hasPointerCapture(event.pointerId)) {
+          canvas.releasePointerCapture(event.pointerId);
+        }
+      } catch {}
+    };
+    canvas.addEventListener("pointerup", release);
+    canvas.addEventListener("pointercancel", release);
     this.tracker.onLandmarks = (landmarks, now) => {
       this.landmarks = landmarks;
       if (!landmarks.length) {

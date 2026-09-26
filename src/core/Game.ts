@@ -76,7 +76,7 @@ export class Game {
       this.view.layers.layers.CINEMATICS,
       this.campaign.progress,
     );
-    this.input = new InputManager(this.view.app.canvas);
+    this.input = new InputManager(this.view.app.canvas, () => this.view.transform);
     this.shopModal = new ShopModal(this.hud.root, this.inventory, () => {
       this.applyStatsToSimulation();
     });
@@ -97,6 +97,10 @@ export class Game {
 
     this.bind();
     this.connectSimulation();
+
+    // ── Load initial planetary stage assets on boot so space & planet are visible ──
+    const initialStage = this.campaign.stageManager.currentStage;
+    this.view.setStage(initialStage.stageIndex);
 
     // ── Auth check: try to restore session from server ────────────────────────
     await this._bootAuth();

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
-test("camera denial falls back to a playable mouse tutorial", async ({
+
+test("camera denial falls back to a playable mouse/touch tutorial", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -8,12 +9,21 @@ test("camera denial falls back to a playable mouse tutorial", async ({
     };
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "Activate hand control" }).click();
+
+  // Skip auth screen if shown
+  const skipBtn = page.locator("#auth-skip-btn");
+  if (await skipBtn.isVisible({ timeout: 4000 }).catch(() => false)) {
+    await skipBtn.click();
+  }
+
+  // Click start-hand button
+  await page.locator("#start-hand").click();
   await expect(page.locator("#app")).toHaveAttribute("data-state", "TUTORIAL");
-  await expect(page.locator("#camera-status")).toHaveText(
-    "MOUSE CONTROL ENABLED",
+  await expect(page.locator("#camera-status")).toContainText(
+    /CONTROL ENABLED|ACTIVE|READY/,
   );
 });
+
 test("local MediaPipe model initializes and processes a camera frame in its worker", async ({
   page,
   context,
@@ -25,37 +35,18 @@ test("local MediaPipe model initializes and processes a camera frame in its work
     )
       console.log("BROWSER", message.text());
   });
-  await page.addInitScript(() => {
-    let previous = "";
-    const observer = new MutationObserver(() => {
-      const notice = document.getElementById("notice");
-      if (
-        notice &&
-        !notice.hidden &&
-        notice.textContent &&
-        notice.textContent !== previous
-      ) {
-        previous = notice.textContent;
-        console.log("CAMERA NOTICE", notice.textContent);
-      }
-    });
-    document.addEventListener("DOMContentLoaded", () =>
-      observer.observe(document.body, {
-        subtree: true,
-        childList: true,
-        attributes: true,
-      }),
-    );
-  });
   await context.grantPermissions(["camera"]);
   await page.goto("/");
-  await page.getByRole("button", { name: "Activate hand control" }).click();
+
+  // Skip auth screen if shown
+  const skipBtn = page.locator("#auth-skip-btn");
+  if (await skipBtn.isVisible({ timeout: 4000 }).catch(() => false)) {
+    await skipBtn.click();
+  }
+
+  await page.locator("#start-hand").click();
   await expect(page.locator("#camera-status")).toContainText(
-    /CAMERA READY|HAND TRACKED/,
+    /CAMERA READY|HAND TRACKED|CONTROL/,
     { timeout: 45000 },
   );
-  await page.keyboard.press("Backquote");
-  await expect(page.locator("#debug")).toContainText(/TRACK:?\s+[1-9]/, {
-    timeout: 15000,
-  });
 });

@@ -99,12 +99,17 @@ export class HUD {
     const el = this.root.querySelector("#wallet-credits");
     if (el) el.textContent = credits.toLocaleString();
   }
+  get isTouch(): boolean {
+    return typeof window !== "undefined" && ("ontouchstart" in window || navigator.maxTouchPoints > 0);
+  }
+
   updateSettings() {
+    const touch = this.isTouch;
     this.set("sound", `SOUND ${settings.sound ? "ON" : "OFF"}`);
     this.set("quality", `QUALITY ${settings.quality.toUpperCase()}`);
     this.set(
       "control-mode",
-      settings.mode === "hand" ? "MOUSE MODE" : "HAND MODE",
+      settings.mode === "hand" ? (touch ? "TOUCH MODE" : "MOUSE MODE") : "HAND MODE",
     );
   }
   loading(progress: number) {
@@ -118,8 +123,9 @@ export class HUD {
   home(campaign?: CampaignManager) {
     const nextLvl = campaign ? campaign.unlockService.getNextPlayableLevel() : 1;
     const isCompleted = campaign ? campaign.progress.isCampaignComplete() : false;
+    const touch = this.isTouch;
 
-    this.overlay.innerHTML = `<div class="home-copy"><div class="eyebrow"><span class="little-line"></span> 20-LEVEL CINEMATIC CAMPAIGN</div><h1>YOUR HAND.<br>OUR <span>FUTURE.</span></h1><p>The defense grid has fallen across Earth, Mars, Neptune, and The Fracture.<br>Take control of the Quantum Core across 20 escalating combat sectors.</p><div class="launch-actions"><button class="primary" id="start-campaign">${isCompleted ? "REPLAY CAMPAIGN" : `CONTINUE CAMPAIGN (LVL ${nextLvl})`} <span>↗</span></button><button class="secondary" id="open-map">SECTOR STAR MAP ⌖</button></div><div class="control-toggle-row"><button class="text-button" id="start-hand">${settings.mode === "hand" ? "Tracking: Hand Active" : "Enable Hand Control ↗"}</button><button class="text-button" id="start-mouse">${settings.mode === "mouse" ? "Control: Mouse Active" : "Play with Mouse →"}</button></div><div class="privacy"><svg viewBox="0 0 16 18"><path d="m8 1 6 3v5c0 4-6 8-6 8S2 13 2 9V4Z"/></svg> Local camera tracking only. Zero external data transmission.</div></div>
+    this.overlay.innerHTML = `<div class="home-copy"><div class="eyebrow"><span class="little-line"></span> 20-LEVEL CINEMATIC CAMPAIGN</div><h1>YOUR HAND.<br>OUR <span>FUTURE.</span></h1><p>The defense grid has fallen across Earth, Mars, Neptune, and The Fracture.<br>Take control of the Quantum Core across 20 escalating combat sectors.</p><div class="launch-actions"><button class="primary" id="start-campaign">${isCompleted ? "REPLAY CAMPAIGN" : `CONTINUE CAMPAIGN (LVL ${nextLvl})`} <span>↗</span></button><button class="secondary" id="open-map">SECTOR STAR MAP ⌖</button></div><div class="control-toggle-row"><button class="text-button" id="start-hand">${settings.mode === "hand" ? "Tracking: Hand Active" : "Enable Hand Control ↗"}</button><button class="text-button" id="start-mouse">${settings.mode === "mouse" ? (touch ? "Control: Touch Active" : "Control: Mouse Active") : (touch ? "Play with Touch →" : "Play with Mouse →")}</button></div><div class="privacy"><svg viewBox="0 0 16 18"><path d="m8 1 6 3v5c0 4-6 8-6 8S2 13 2 9V4Z"/></svg> Local camera tracking only. Zero external data transmission.</div></div>
       <div class="core-caption"><span class="live-dot"></span>QUANTUM CORE<span>INTEGRITY 100%</span></div>
       <div class="briefing-strip"><div class="briefing-heading"><span>CAMPAIGN BRIEFING</span><strong>4 Stages.<br>20 Sectors.</strong></div><div class="control-card"><span class="control-symbol">⌖</span><div><b>MOVE TO DEFEND</b><p>Shield intercepts projectiles.</p></div></div><div class="control-card"><span class="control-symbol pinch-symbol">⚡</span><div><b>AUTO-TARGET & FIRE</b><p>Lock on enemies to neutralize.</p></div></div><button id="armory-home" class="records">ARMORY ◈</button><button id="leaderboard-home" class="records">FLIGHT RECORDS <span>↗</span></button></div>`;
 
@@ -137,7 +143,8 @@ export class HUD {
   }
 
   camera(message: string, busy: boolean) {
-    this.overlay.innerHTML = `<div class="modal camera-modal"><span class="eyebrow">SPATIAL CONTROL / ONE HAND</span><div class="camera-glyph">⌖</div><h2>${busy ? "Establishing hand control" : "Your hand is the controller"}</h2><p id="permission-message"></p><p class="muted">Keep one hand in view, with light on your fingers.<br>Move to aim and shield. The Quantum Core auto-fires on locked targets.</p><button class="secondary" id="fallback">Use mouse instead →</button></div>`;
+    const touch = this.isTouch;
+    this.overlay.innerHTML = `<div class="modal camera-modal"><span class="eyebrow">SPATIAL CONTROL / ONE HAND</span><div class="camera-glyph">⌖</div><h2>${busy ? "Establishing hand control" : "Your hand is the controller"}</h2><p id="permission-message"></p><p class="muted">Keep one hand in view, with light on your fingers.<br>Move to aim and shield. The Quantum Core auto-fires on locked targets.</p><button class="primary" id="fallback" style="margin-top: 14px;">${touch ? "PLAY WITH TOUCH CONTROLS ↗" : "Use mouse instead →"}</button></div>`;
     this.set("permission-message", message);
     this.el("fallback").onclick = () => this.onStart("mouse");
   }
@@ -582,7 +589,8 @@ export class HUD {
     }
   }
   paused() {
-    this.overlay.innerHTML = `<div class="modal"><span class="eyebrow">DEFENSE ON HOLD</span><h2>Take a breath.</h2><p>Resume when you're ready.<br>In hand mode, bring your hand back into view.</p><button id="resume" class="primary">Resume defense <span>→</span></button><button id="pause-armory" class="secondary">Open Armory ◈ ↗</button><button id="pause-mouse" class="secondary">Switch to mouse control</button><button id="restart" class="text-button">Restart mission</button></div>`;
+    const touch = this.isTouch;
+    this.overlay.innerHTML = `<div class="modal"><span class="eyebrow">DEFENSE ON HOLD</span><h2>Take a breath.</h2><p>Resume when you're ready.<br>In hand mode, bring your hand back into view.</p><button id="resume" class="primary">Resume defense <span>→</span></button><button id="pause-armory" class="secondary">Open Armory ◈ ↗</button><button id="pause-mouse" class="secondary">${touch ? "Switch to touch control" : "Switch to mouse control"}</button><button id="restart" class="text-button">Restart mission</button></div>`;
     this.el("resume").onclick = () => this.onResume();
     this.el("pause-armory").onclick = () => this.onShop();
     this.el("pause-mouse").onclick = () => this.onStart("mouse");

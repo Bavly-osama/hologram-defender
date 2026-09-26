@@ -1,5 +1,7 @@
 import { FilesetResolver, HandLandmarker } from "@mediapipe/tasks-vision";
+
 let tracker: HandLandmarker | undefined;
+
 self.onmessage = async (
   event: MessageEvent<{
     type: "init" | "frame";
@@ -9,18 +11,44 @@ self.onmessage = async (
 ) => {
   try {
     if (event.data.type === "init") {
-      const vision = await FilesetResolver.forVisionTasks("/tracking/wasm");
-      tracker = await HandLandmarker.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath: "/tracking/hand_landmarker.task",
-          delegate: "CPU",
-        },
-        runningMode: "VIDEO",
-        numHands: 1,
-        minHandDetectionConfidence: 0.55,
-        minHandPresenceConfidence: 0.55,
-        minTrackingConfidence: 0.55,
-      });
+      let vision;
+      try {
+        vision = await FilesetResolver.forVisionTasks("/tracking/wasm");
+      } catch (wasmErr) {
+        console.warn("[Worker] Local WASM failed, falling back to CDN", wasmErr);
+        vision = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm",
+        );
+      }
+
+      try {
+        tracker = await HandLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: "/tracking/hand_landmarker.task",
+            delegate: "CPU",
+          },
+          runningMode: "VIDEO",
+          numHands: 1,
+          minHandDetectionConfidence: 0.55,
+          minHandPresenceConfidence: 0.55,
+          minTrackingConfidence: 0.55,
+        });
+      } catch (modelErr) {
+        console.warn("[Worker] Local model failed, falling back to CDN", modelErr);
+        tracker = await HandLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath:
+              "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+            delegate: "CPU",
+          },
+          runningMode: "VIDEO",
+          numHands: 1,
+          minHandDetectionConfidence: 0.55,
+          minHandPresenceConfidence: 0.55,
+          minTrackingConfidence: 0.55,
+        });
+      }
+
       self.postMessage({ type: "ready" });
     } else if (tracker && event.data.bitmap) {
       const result = tracker.detectForVideo(event.data.bitmap, event.data.time);

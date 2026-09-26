@@ -1,10 +1,13 @@
 import { type Landmark } from "./HandState";
+
 export type CameraState = "REQUEST" | "LOADING" | "READY" | "DENIED" | "ERROR";
+
 interface WorkerReply {
   type: "ready" | "result" | "error";
   landmarks?: Landmark[];
   message?: string;
 }
+
 export class HandTracker {
   state: CameraState = "REQUEST";
   readonly video = document.createElement("video");
@@ -23,51 +26,103 @@ export class HandTracker {
   interval = 50;
   onLandmarks: (landmarks: Landmark[], time: number) => void = () => {};
   onState: (state: CameraState, message: string) => void = () => {};
+
   private change(state: CameraState, message: string) {
     this.state = state;
     this.onState(state, message);
   }
+
   async start() {
     this.stop();
     const generation = this.generation;
+    const isTouch = typeof window !== "undefined" && ("ontouchstart" in window || navigator.maxTouchPoints > 0);
     this.change("REQUEST", "Allow camera access to activate hand control");
+
     try {
       if (!navigator.mediaDevices?.getUserMedia)
-        throw new Error("Camera requires localhost or HTTPS");
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "user",
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          frameRate: { ideal: 30, max: 30 },
-        },
-        audio: false,
-      });
+        throw new Error("Camera requires HTTPS or localhost");
+
+      // Mobile resilient constraints: try ideal 640x480 first, fallback to user camera directly
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "user",
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            frameRate: { ideal: 30, max: 30 },
+          },
+          audio: false,
+        });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user" },
+          audio: false,
+        });
+      }
+
       if (generation !== this.generation) {
         stream.getTracks().forEach((t) => t.stop());
         return;
       }
+
       this.stream = stream;
-      this.video.srcObject = stream;
+
+      // Essential for mobile browsers (Android Chrome & iOS Safari):
+      this.video.setAttribute("playsinline", "true");
+      this.video.setAttribute("webkit-playsinline", "true");
+      this.video.setAttribute("muted", "true");
+      this.video.setAttribute("autoplay", "true");
       this.video.muted = true;
       this.video.playsInline = true;
-      await this.video.play();
+      this.video.autoplay = true;
+      this.video.style.cssText =
+        "position:fixed;width:1px;height:1px;opacity:0.001;pointer-events:none;left:-9999px;top:-9999px;z-index:-1;";
+
+      if (!this.video.parentElement && document.body) {
+        document.body.appendChild(this.video);
+      }
+
+      this.video.srcObject = stream;
+
+      // Wrap play in race to never stall if browser delays permission resolve
+      await Promise.race([
+        this.video.play(),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("Video playback timeout")), 4000)),
+      ]).catch(() => {});
+
       this.change(
         "LOADING",
-        "Loading hand recognition · camera stays on this device",
+        "Loading hand recognition AI · Camera stays private",
       );
-      // MediaPipe's WASM glue uses importScripts; it needs a classic bundled worker.
+
+      // MediaPipe classic bundled worker with CDN fallback built-in
       this.worker = new Worker("/tracking/hand-worker.js");
+
       await new Promise<void>((resolve, reject) => {
         const timeout = window.setTimeout(
           () =>
-            reject(new Error("Hand model loading timed out. Try mouse mode.")),
-          30000,
+            reject(
+              new Error(
+                isTouch
+                  ? "Hand tracking initialization timed out · Touch control enabled"
+                  : "Hand model loading timed out. Try mouse mode.",
+              ),
+            ),
+          12000,
         );
+
         this.worker!.onerror = () => {
           clearTimeout(timeout);
-          reject(new Error("Hand tracking worker could not start"));
+          reject(
+            new Error(
+              isTouch
+                ? "Hand tracking worker could not start · Touch control enabled"
+                : "Hand tracking worker could not start",
+            ),
+          );
         };
+
         this.worker!.onmessage = (event: MessageEvent<WorkerReply>) => {
           if (event.data.type === "ready") {
             clearTimeout(timeout);
@@ -80,7 +135,9 @@ export class HandTracker {
             if (this.state === "READY")
               this.change(
                 "ERROR",
-                "Tracking interrupted. Switch to mouse or retry.",
+                isTouch
+                  ? "Tracking interrupted. Switch to touch or retry."
+                  : "Tracking interrupted. Switch to mouse or retry.",
               );
           }
           if (event.data.type === "result") {
@@ -90,16 +147,25 @@ export class HandTracker {
             this.onLandmarks(event.data.landmarks ?? [], this.lastResult);
           }
         };
+
         this.worker!.postMessage({ type: "init" });
       });
+
       if (generation !== this.generation) return;
+
       this.stream
         .getVideoTracks()[0]
         .addEventListener("ended", () =>
-          this.change("ERROR", "Camera stopped. Switch to mouse or reconnect."),
+          this.change(
+            "ERROR",
+            isTouch
+              ? "Camera stopped. Switched to touch controls."
+              : "Camera stopped. Switch to mouse or reconnect.",
+          ),
         );
+
       this.lastResult = performance.now();
-      this.change("READY", "Camera ready · show one hand");
+      this.change("READY", "Camera ready · show one hand to control");
     } catch (error) {
       if (generation !== this.generation) return;
       this.stop();
@@ -108,20 +174,32 @@ export class HandTracker {
       this.change(
         denied ? "DENIED" : "ERROR",
         denied
-          ? "Camera unavailable · mouse control enabled"
+          ? isTouch
+            ? "Camera access denied · Touch control active"
+            : "Camera unavailable · mouse control enabled"
           : error instanceof Error
             ? error.message
-            : "Camera unavailable · use mouse control",
+            : isTouch
+              ? "Hand tracking unavailable · Touch control active"
+              : "Camera unavailable · use mouse control",
       );
     }
   }
+
   tick(now: number) {
-    if (this.state !== "READY" || !this.worker || this.video.readyState < 2)
+    if (
+      this.state !== "READY" ||
+      !this.worker ||
+      this.video.readyState < 2 ||
+      this.video.videoWidth === 0
+    )
       return;
+
     if (this.video.currentTime !== this.lastFrame) {
       this.frameCount++;
       this.lastFrame = this.video.currentTime;
     }
+
     if (now - this.meterTime > 1000) {
       const seconds = (now - this.meterTime) / 1000;
       this.cameraFps = this.frameCount / seconds;
@@ -130,15 +208,18 @@ export class HandTracker {
       this.inferenceCount = 0;
       this.meterTime = now;
     }
+
     if (
       this.busy ||
       now - this.lastInference < this.interval ||
       document.hidden
     )
       return;
+
     this.busy = true;
     this.lastInference = now;
     const worker = this.worker;
+
     createImageBitmap(this.video)
       .then((bitmap) => {
         if (worker === this.worker)
@@ -149,6 +230,7 @@ export class HandTracker {
         this.busy = false;
       });
   }
+
   stop() {
     this.generation++;
     this.worker?.terminate();
@@ -156,6 +238,9 @@ export class HandTracker {
     this.stream?.getTracks().forEach((t) => t.stop());
     this.stream = undefined;
     this.video.srcObject = null;
+    if (this.video.parentElement) {
+      this.video.remove();
+    }
     this.busy = false;
     this.lastFrame = -1;
   }

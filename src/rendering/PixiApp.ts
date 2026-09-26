@@ -103,9 +103,38 @@ export class PixiApp {
     new ResizeObserver(() => this.resize()).observe(host);
     this.resize();
   }
+
+  readonly transform = {
+    scaleX: 1,
+    scaleY: 1,
+    offsetX: 0,
+    offsetY: 0,
+    isPortrait: false,
+  };
+
   private resize() {
     const { width, height } = this.app.screen;
-    this.layers.root.scale.set(width / WORLD.width, height / WORLD.height);
+    const isPortrait = height > width;
+    this.transform.isPortrait = isPortrait;
+
+    if (isPortrait) {
+      // In portrait orientation, maintain proportional 1:1 scale (no vertical stretch)
+      const scale = width / WORLD.width;
+      this.transform.scaleX = scale;
+      this.transform.scaleY = scale;
+      this.transform.offsetX = 0;
+      // Center the combat playfield vertically in the portrait viewport
+      this.transform.offsetY = Math.max(0, (height - WORLD.height * scale) / 2);
+      this.layers.root.scale.set(scale, scale);
+      this.layers.root.position.set(this.transform.offsetX, this.transform.offsetY);
+    } else {
+      this.transform.scaleX = width / WORLD.width;
+      this.transform.scaleY = height / WORLD.height;
+      this.transform.offsetX = 0;
+      this.transform.offsetY = 0;
+      this.layers.root.scale.set(this.transform.scaleX, this.transform.scaleY);
+      this.layers.root.position.set(0, 0);
+    }
   }
   private background() {
     for (let i = 0; i < 150; i++) {
@@ -178,13 +207,22 @@ export class PixiApp {
   ) {
     if (!frozen) this.time += dt;
     this.damage = Math.max(0, this.damage - dt);
-    this.stageBackground.update(dt, input.point, quality.low);
-    this.menuBlend = mix(this.menuBlend, menu ? 1 : 0, 1 - Math.exp(-dt * 5));
-    this.core.container.position.set(
-      mix(WORLD.core.x, 890, this.menuBlend),
-      mix(WORLD.core.y, 365, this.menuBlend),
+    this.stageBackground.update(
+      dt,
+      input.point,
+      quality.low,
+      this.transform.isPortrait,
     );
-    this.core.container.scale.set(mix(0.85, 1.85, this.menuBlend));
+    this.menuBlend = mix(this.menuBlend, menu ? 1 : 0, 1 - Math.exp(-dt * 5));
+    const menuTargetX = this.transform.isPortrait ? 600 : 890;
+    const menuTargetY = this.transform.isPortrait ? 380 : 365;
+    this.core.container.position.set(
+      mix(WORLD.core.x, menuTargetX, this.menuBlend),
+      mix(WORLD.core.y, menuTargetY, this.menuBlend),
+    );
+    this.core.container.scale.set(
+      mix(0.85, this.transform.isPortrait ? 1.4 : 1.85, this.menuBlend),
+    );
     const aim = sim.target ? sim.enemies.weakPoint(sim.target) : input.point;
     this.core.update(
       this.time,

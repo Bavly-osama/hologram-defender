@@ -282,16 +282,31 @@ export class StageBackgroundManager {
     this.loadStage(STAGES_CONFIG[stageId]);
   }
 
-  update(dt: number, pointer: Point = { x: 600, y: 375 }, qualityLow = false) {
+  update(
+    dt: number,
+    pointer: Point = { x: 600, y: 375 },
+    qualityLow = false,
+    isPortrait = false,
+  ) {
     this.time += dt;
 
     // Parallax displacement based on aim pointer (normalized around center 600, 375)
     const normX = (pointer.x - 600) / 600;
     const normY = (pointer.y - 375) / 375;
 
+    // In portrait mobile, shift celestial bodies towards center (x=600) so they aren't clipped off the right
+    const portraitShiftX = isPortrait ? -300 : 0;
+    const portraitShiftY = isPortrait ? 50 : 0;
+
     this.farSpace.position.set(-normX * 6, -normY * 4);
-    this.celestial.position.set(-normX * 18, -normY * 12);
-    this.structures.position.set(-normX * 28, -normY * 20);
+    this.celestial.position.set(
+      -normX * 18 + portraitShiftX,
+      -normY * 12 + portraitShiftY,
+    );
+    this.structures.position.set(
+      -normX * 28 + portraitShiftX,
+      -normY * 20 + portraitShiftY,
+    );
 
     // Particle drifts
     if (!qualityLow) {

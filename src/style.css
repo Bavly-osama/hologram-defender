@@ -910,57 +910,98 @@ input {
 }
 @media (max-width: 699px) {
   #app {
-    min-height: 650px;
+    min-height: 100svh;
+    height: 100svh;
   }
   .masthead {
-    top: 22px;
-    left: 6%;
-    right: 6%;
+    top: 12px;
+    left: 4%;
+    right: 4%;
+    gap: 8px;
+    justify-content: space-between;
+  }
+  .station {
+    display: none;
   }
   .brand {
-    font-size: 14px;
+    font-size: 13px;
   }
   .brand-light {
-    font-size: 10px;
+    font-size: 9px;
   }
   .brand svg {
-    width: 26px;
+    width: 22px;
   }
   .system {
     font-size: 7px;
     letter-spacing: 0;
   }
+  .armory-button {
+    padding: 6px 10px;
+    font-size: 10px;
+  }
   .home-copy {
-    top: 17%;
-    left: 8%;
-    right: 8%;
+    top: 14%;
+    left: 6%;
+    right: 6%;
   }
   .home-copy h1 {
-    font-size: 65px;
-    margin: 20px 0;
+    font-size: 36px;
+    line-height: 1.15;
+    margin: 14px 0;
   }
   .home-copy p {
-    font-size: 14px;
+    font-size: 12px;
+    line-height: 1.5;
   }
   .home-copy .eyebrow {
     font-size: 8px;
   }
   .home-copy .launch-actions {
     flex-direction: column;
-    max-width: 265px;
+    max-width: 280px;
   }
   .privacy {
     font-size: 8px;
-    max-width: 265px;
+    max-width: 280px;
+  }
+  .modal {
+    width: min(92vw, 440px);
+    padding: 22px 18px;
+    max-height: 85vh;
+  }
+  .modal h2 {
+    font-size: 26px;
+    margin: 12px 0;
+  }
+  .modal p {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .camera-modal {
+    width: min(92vw, 420px);
+    padding: 22px 18px;
+  }
+  .camera-glyph {
+    font-size: 42px;
+    margin-top: 8px;
+  }
+  .auth-screen {
+    width: 92vw;
+    padding: 24px 18px;
+    gap: 16px;
+  }
+  .auth-title {
+    font-size: 22px;
   }
   .core-caption {
     display: none;
   }
   .briefing-strip {
-    bottom: 13%;
-    left: 8%;
-    right: 8%;
-    gap: 20px;
+    bottom: 110px;
+    left: 6%;
+    right: 6%;
+    gap: 12px;
     flex-wrap: wrap;
   }
   .briefing-heading {
@@ -1004,7 +1045,7 @@ input {
   #rotate {
     display: block;
     position: absolute;
-    bottom: 89px;
+    bottom: 65px;
     left: 6%;
     right: 6%;
     text-align: center;
@@ -1013,7 +1054,7 @@ input {
     pointer-events: none;
   }
   #app[data-state="CAMERA_READY"] #rotate {
-    bottom: 110px;
+    bottom: 65px;
   }
   #hud {
     top: 95px;
