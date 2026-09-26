@@ -11,7 +11,7 @@ self.onmessage = async (
 ) => {
   try {
     if (event.data.type === "init") {
-      let vision;
+      let vision: Awaited<ReturnType<typeof FilesetResolver.forVisionTasks>>;
       try {
         vision = await FilesetResolver.forVisionTasks("/tracking/wasm");
       } catch (wasmErr) {
@@ -21,32 +21,43 @@ self.onmessage = async (
         );
       }
 
+      async function createTracker(modelPath: string) {
+        try {
+          console.log("[Worker] Attempting GPU delegate with", modelPath);
+          return await HandLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: modelPath,
+              delegate: "GPU",
+            },
+            runningMode: "VIDEO",
+            numHands: 1,
+            minHandDetectionConfidence: 0.55,
+            minHandPresenceConfidence: 0.50,
+            minTrackingConfidence: 0.40,
+          });
+        } catch (gpuErr) {
+          console.warn("[Worker] GPU delegate failed, falling back to CPU", gpuErr);
+          return await HandLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: modelPath,
+              delegate: "CPU",
+            },
+            runningMode: "VIDEO",
+            numHands: 1,
+            minHandDetectionConfidence: 0.55,
+            minHandPresenceConfidence: 0.50,
+            minTrackingConfidence: 0.40,
+          });
+        }
+      }
+
       try {
-        tracker = await HandLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath: "/tracking/hand_landmarker.task",
-            delegate: "CPU",
-          },
-          runningMode: "VIDEO",
-          numHands: 1,
-          minHandDetectionConfidence: 0.60,
-          minHandPresenceConfidence: 0.50,
-          minTrackingConfidence: 0.40,
-        });
+        tracker = await createTracker("/tracking/hand_landmarker.task");
       } catch (modelErr) {
         console.warn("[Worker] Local model failed, falling back to CDN", modelErr);
-        tracker = await HandLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath:
-              "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
-            delegate: "CPU",
-          },
-          runningMode: "VIDEO",
-          numHands: 1,
-          minHandDetectionConfidence: 0.60,
-          minHandPresenceConfidence: 0.50,
-          minTrackingConfidence: 0.40,
-        });
+        tracker = await createTracker(
+          "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+        );
       }
 
       self.postMessage({ type: "ready" });

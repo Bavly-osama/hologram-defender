@@ -78,7 +78,7 @@ export class HandTracker {
   trackingFps = 0;
   confidence = 0;
   lastResult = 0;
-  interval = 50;
+  interval = 25;
 
   onLandmarks: (landmarks: Landmark[], time: number, confidence?: number) => void = () => {};
   /** Called with both legacy CameraState AND a human-readable message */
@@ -118,7 +118,7 @@ export class HandTracker {
             facingMode: "user",
             width: { ideal: idealW, max: idealW },
             height: { ideal: idealH, max: idealH },
-            frameRate: { ideal: 24, max: 30 },
+            frameRate: { ideal: 30, min: 24, max: 60 },
           },
           audio: false,
         });
@@ -371,7 +371,15 @@ export class HandTracker {
     this.lastInference = now;
     const worker = this.worker;
 
-    createImageBitmap(this.video)
+    const capturePromise = ("createImageBitmap" in window)
+      ? createImageBitmap(this.video, {
+          resizeWidth: 320,
+          resizeHeight: 240,
+          resizeQuality: "low",
+        }).catch(() => createImageBitmap(this.video))
+      : Promise.reject(new Error("createImageBitmap unsupported"));
+
+    capturePromise
       .then((bitmap) => {
         if (worker === this.worker)
           worker.postMessage({ type: "frame", bitmap, time: now }, [bitmap]);

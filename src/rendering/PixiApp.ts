@@ -128,22 +128,28 @@ export class PixiApp {
     this.transform.isPortrait = isPortrait;
 
     if (isPortrait) {
-      // Focus on active combat zone: width 460 world units centered at X=600 for large, prominent mobile action
-      const hudTop = snap.safeArea.top + (snap.deviceProfile !== "DESKTOP" ? 44 : 48);
-      const footer = snap.safeArea.bottom + (snap.deviceProfile !== "DESKTOP" ? 40 : 36);
+      const isMobile = snap.deviceProfile !== "DESKTOP";
+      // Masthead (top: 8px) + compact HUD (top: 44px) end at ~82px
+      const hudTop = snap.safeArea.top + (isMobile ? 84 : 48);
+      // Statusbar + camera preview clearance at bottom
+      const footer = snap.safeArea.bottom + (isMobile ? 54 : 36);
       const playableH = Math.max(300, height - hudTop - footer);
       const combatWidth = 460;
-      const scale = Math.min(width / combatWidth, playableH / 650);
+      const scale = Math.min(width / combatWidth, playableH / 620);
 
       this.transform.scaleX = scale;
       this.transform.scaleY = scale;
       this.transform.offsetX = (width - WORLD.width * scale) / 2;
-      this.transform.offsetY = hudTop + Math.max(0, (playableH - WORLD.height * scale) / 2);
+
+      // Ground cannon nicely near the bottom of playable area without letting enemies overlap HUD
+      const idealCannonY = height - footer - (isMobile ? 30 : 20);
+      const targetOffsetY = idealCannonY - WORLD.core.y * scale;
+      this.transform.offsetY = Math.max(hudTop + 10, Math.min(hudTop + 70, targetOffsetY));
+
       this.layers.root.scale.set(scale, scale);
       this.layers.root.position.set(this.transform.offsetX, this.transform.offsetY);
 
-      const isMobileDevice = snap.deviceProfile !== "DESKTOP";
-      this.mobileScaleBoost = isMobileDevice ? 1.75 : 1.0;
+      this.mobileScaleBoost = isMobile ? 1.6 : 1.0;
     } else {
       // Landscape: fill canvas
       this.transform.scaleX = width / WORLD.width;
@@ -159,8 +165,8 @@ export class PixiApp {
     // Update gameplay bounds with current transform
     const isMobile = snap.deviceProfile !== "DESKTOP";
     GameplayBounds.get().update(width, height, snap.safeArea, this.transform, {
-      hudTopPx: isMobile ? 44 : 48,
-      footerPx: isMobile ? 40 : 36,
+      hudTopPx: isMobile ? 84 : 48,
+      footerPx: isMobile ? 54 : 36,
     });
   }
   private background() {

@@ -1,5 +1,6 @@
 import { WORLD, mix, type Point } from "../core/Config";
 import { balance, isBossKind, type EnemyKind } from "../gameplay/gameBalance";
+import { GameplayBounds } from "../gameplay/GameplayBounds";
 
 export interface Enemy extends Point {
   id: number;
@@ -120,17 +121,19 @@ export class EnemyManager {
 
       // Boss movement patterns
       if (isBossKind(e.kind)) {
+        const gb = GameplayBounds.get();
+        const maxAmp = gb.isPortrait ? Math.max(140, Math.min(220, (gb.worldBounds.width / 2) - 60)) : 300;
         if (e.kind === "boss") {
-          e.x = 600 + Math.sin(e.age * 0.45) * 225;
+          e.x = 600 + Math.sin(e.age * 0.45) * Math.min(225, maxAmp);
           e.y = 180 + Math.sin(e.age * 0.8) * 25;
         } else if (e.kind === "mars_war_machine") {
-          e.x = 600 + Math.sin(e.age * 0.35) * 250;
+          e.x = 600 + Math.sin(e.age * 0.35) * Math.min(250, maxAmp);
           e.y = 175 + Math.abs(Math.sin(e.age * 1.4)) * 20;
         } else if (e.kind === "void_leviathan") {
-          e.x = 600 + Math.cos(e.age * 0.5) * 270;
+          e.x = 600 + Math.cos(e.age * 0.5) * Math.min(270, maxAmp);
           e.y = 185 + Math.sin(e.age * 1.1) * 40;
         } else if (e.kind === "fracture_architect") {
-          e.x = 600 + Math.sin(e.age * 0.6) * 190;
+          e.x = 600 + Math.sin(e.age * 0.6) * Math.min(190, maxAmp);
           e.y = 180 + Math.cos(e.age * 0.85) * 30;
         }
         continue;

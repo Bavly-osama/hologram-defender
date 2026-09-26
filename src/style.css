@@ -1060,28 +1060,52 @@ input {
     color: #617d8d;
     pointer-events: none;
   }
+  #app[data-state="PLAYING"] #rotate,
+  #app[data-state="BOSS"] #rotate {
+    display: none !important;
+  }
   #app[data-state="CAMERA_READY"] #rotate {
     bottom: 52px;
   }
   #hud {
-    top: 95px;
+    top: 44px;
+    left: 3%;
+    right: 3%;
+    align-items: center;
   }
   .meter {
-    width: 28%;
+    width: 26%;
+    max-width: 110px;
+    padding-top: 0;
   }
   .meter > span {
     font-size: 7px;
-    letter-spacing: 0;
-    gap: 6px;
+    letter-spacing: 0.5px;
+    margin-bottom: 3px;
+    gap: 4px;
+  }
+  .hud-center {
+    margin-top: -2px;
   }
   .hud-center > span:first-child {
-    font-size: 7px;
+    font-size: 8px;
+    letter-spacing: 1px;
   }
   .hud-center > b {
-    font-size: 28px;
+    font-size: 19px;
+    line-height: 1.1;
+    margin: 1px 0;
+  }
+  .hud-sub {
+    gap: 6px;
+    font-size: 7px;
   }
   .hud-center > span:last-child {
     font-size: 6px;
+  }
+  .lock-tag {
+    padding: 1px 5px;
+    font-size: 7px;
   }
   #tutorial {
     min-width: 0;
@@ -1095,9 +1119,9 @@ input {
     font-size: 10px;
   }
   #boss-hud {
-    left: 20%;
-    right: 20%;
-    top: 170px;
+    left: 10%;
+    right: 10%;
+    top: 88px;
   }
   .modal {
     padding: 25px;
